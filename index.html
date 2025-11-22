@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title> Frienbook - Persistent Multi-user Demo</title>
+<style>
+  :root{
+    --bg: #f0f2f5;
+    --card: #fff;
+    --muted: #65676b;
+    --accent: #1877f2;
+    --radius: 12px;
+  }
+
+  html,body{
+    height:100%;
+    margin:0;
+    background:var(--bg);
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    color:#111;
+    direction:ltr;
+  }
+
+  .container{
+    max-width:900px;
+    margin:20px auto;
+    padding:0 12px;
+  }
+
+  /* Top bar */
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .brand{font-weight:800;font-size:20px}
+  .user-area{display:flex;gap:10px;align-items:center}
+  .user-area img{width:40px;height:40px;border-radius:50%;object-fit:cover}
+  .logout-btn{background:#eee;border:none;padding:8px 10px;border-radius:8px;cursor:pointer}
+
+  /* Login overlay */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:9999}
+  .card{background:var(--card);padding:18px;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,0.18);width:420px;max-width:94%}
+  .center{display:flex;flex-direction:column;align-items:center}
+  .login-avatar{width:84px;height:84px;border-radius:50%;object-fit:cover;border:2px solid #eee;margin-bottom:8px}
+  .users-list{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .user-pill{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:8px;background:#fafafa;border:1px solid #eee;cursor:pointer}
+
+  /* Composer */
+  .post-box{background:var(--card);border-radius:var(--radius);box-shadow:0 2px 6px rgba(0,0,0,0.08);padding:14px;margin-bottom:18px}
+  .post-top{display:flex;gap:10px;align-items:flex-start}
+  .profile-pic{width:48px;height:48px;border-radius:50%;object-fit:cover}
+  .composer-right{flex:1}
+  .post-input{width:100%;border:none;background:#f2f3f5;border-radius:22px;padding:12px 14px;font-size:15px;resize:none;min-height:52px;outline:none;box-sizing:border-box}
+  .composer-controls{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+  .icons{display:flex;gap:10px;align-items:center}
+  .icon-btn{display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:8px;background:none;border:none;cursor:pointer;color:var(--muted)}
+  .post-btn{background:var(--accent);color:white;padding:9px 14px;border-radius:8px;border:none;cursor:pointer}
+  .post-btn:disabled{opacity:.6;cursor:not-allowed}
+
+  .img-preview{margin-top:10px;border-radius:50%;width:160px;height:160px;object-fit:cover;display:block}
+
+  /* Feed / Posts */
+  .feed{margin-top:6px}
+  .post{background:var(--card);border-radius:var(--radius);padding:12px;margin-bottom:14px;box-shadow:0 2px 6px rgba(0,0,0,0.06)}
+  .post-header{display:flex;justify-content:space-between;align-items:center}
+  .post-left{display:flex;gap:10px;align-items:center}
+  .post-author{font-weight:700}
+  .post-time{font-size:12px;color:var(--muted)}
+  .post-content{margin-top:10px;white-space:pre-wrap;font-size:15px}
+  .post-image{margin-top:10px;width:260px;height:260px;object-fit:cover;border-radius:50%;display:block}
+
+  .post-actions{display:flex;justify-content:space-around;border-top:1px solid #eee;padding-top:8px;margin-top:10px;gap:8px}
+  .action-btn{display:flex;gap:8px;align-items:center;padding:8px 12px;border-radius:8px;border:none;background:none;cursor:pointer;color:var(--muted)}
+  .action-btn.liked{color:var(--accent)}
+
+  .controls{display:flex;gap:8px;align-items:center}
+
+  /* Comments */
+  .comments-section{margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px;display:none}
+  .comment-box{display:flex;gap:8px;align-items:center;position:relative}
+  .comment-input{flex:1;background:#f2f3f5;border:none;padding:8px 12px;border-radius:20px;font-size:14px;outline:none}
+  .emoji-btn{position:absolute;right:10px;background:none;border:none;font-size:18px;cursor:pointer;color:#666}
+  .emoji-picker{display:none;position:absolute;bottom:44px;right:0;background:white;border:1px solid #eee;border-radius:8px;padding:8px;width:220px;box-shadow:0 6px 18px rgba(0,0,0,0.12);z-index:50;flex-wrap:wrap}
+  .emoji-picker.active{display:flex;gap:6px;flex-wrap:wrap}
+  .emoji-picker span{font-size:20px;padding:6px;border-radius:6px;cursor:pointer}
+  .emoji-picker span:hover{background:#f2f3f3}
+
+  .comments-list{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+  .comment{display:flex;gap:8px;align-items:flex-start}
+  .comment img{width:36px;height:36px;border-radius:50%;object-fit:cover}
+  .comment-meta{display:flex;flex-direction:column}
+  .comment-author{font-weight:700;font-size:13px}
+  .comment-text{background:#f2f3f5;padding:8px 12px;border-radius:12px;font-size:14px;max-width:100%}
+  .comment-controls{display:flex;gap:6px;align-items:center;margin-left:6px}
+
+  /* Editing UI inside modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;z-index:10000}
+  .modal{background:var(--card);width:90%;max-width:640px;border-radius:10px;padding:14px;box-shadow:0 12px 40px rgba(0,0,0,0.3)}
+  .modal-body{display:flex;flex-direction:column;gap:8px}
+  .edit-image{width:260px;height:260px;object-fit:cover;border-radius:50%}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+  .small{font-size:13px;color:var(--muted)}
+
+  @media (max-width:720px){
+    .post-image, .edit-image, .img-preview { width:180px;height:180px }
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+
+    <div class="topbar">
+      <div class="brand"> Frienbook</div>
+      <div class="user-area" id="top-user-area" style="display:none">
+        <img id="top-user-pic" src="" alt="avatar">
+        <div id="top-user-name" style="font-weight:700"></div>
+        <button id="logout-btn" class="logout-btn">Log out</button>
+      </div>
+    </div>
+
+    <!-- composer -->
+    <div id="composer-area" style="display:none">
+      <div class="post-box">
+        <div class="post-top">
+          <img id="composer-profile-pic" class="profile-pic" src="" alt="me">
+          <div class="composer-right">
+            <textarea id="composer-text" class="post-input" placeholder="What's on your mind?"></textarea>
+
+            <img id="composer-preview" class="img-preview" alt="" style="display:none">
+
+            <div class="composer-controls">
+              <div class="icons">
+                <label class="icon-btn" title="Live"><span>🎥</span><span style="margin-left:6px">Live</span></label>
+
+                <label class="icon-btn" title="Photo" for="publisher-photos"><span>📷</span><span style="margin-left:6px">Photo</span></label>
+
+                <div style="position:relative">
+                  <button id="feeling-btn" class="icon-btn"><span>😊</span><span style="margin-left:6px">Feeling</span></button>
+                  <div id="feeling-dropdown" class="card" style="position:absolute;right:0;top:44px;display:none;padding:8px;width:220px">
+                    <div class="small">Feelings</div>
+                    <div style="margin-top:6px;display:flex;flex-direction:column;gap:6px">
+                      <button class="icon-btn feeling-option">😊 Happy</button>
+                      <button class="icon-btn feeling-option">😢 Sad</button>
+                      <button class="icon-btn feeling-option">😍 In love</button>
+                      <div class="small" style="margin-top:6px">Activities</div>
+                      <button class="icon-btn feeling-option">🎮 Playing</button>
+                      <button class="icon-btn feeling-option">🍔 Eating</button>
+                      <button class="icon-btn feeling-option">📺 Watching</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <button id="post-btn" class="post-btn" disabled>Post</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        <input id="publisher-photos" type="file" accept="image/*" style="display:none">
+      </div>
+    </div>
+
+    <!-- feed -->
+    <div class="feed" id="feed"></div>
+
+  </div>
+
+  <!-- login overlay -->
+  <div id="login-overlay" class="overlay" style="display:none">
+    <div class="card center">
+      <h3>Sign in / Pick a user or create new</h3>
+      <img id="login-avatar-preview" class="login-avatar" src="https://i.imgur.com/8Km9tLL.png" alt="avatar">
+      <input id="login-name" placeholder="Your name" style="width:100%;padding:10px;border-radius:8px;border:1px solid #eee;margin-top:8px">
+      <div style="margin-top:8px">
+        <label for="login-avatar-input" class="icon-btn" style="background:#f7f8fa;border-radius:8px;padding:8px 12px;cursor:pointer">Choose avatar</label>
+        <input id="login-avatar-input" type="file" accept="image/*" style="display:none">
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button id="login-submit" class="post-btn">Sign in</button>
+      </div>
+
+      <div style="margin-top:12px;width:100%">
+        <div class="small">Existing users</div>
+        <div class="users-list" id="users-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit post modal -->
+  <div id="modal-overlay" class="modal-overlay" style="display:none">
+    <div class="modal" role="dialog" aria-modal="true">
+      <h3>Edit post</h3>
+      <div class="modal-body">
+        <label class="small">Text</label>
+        <textarea id="modal-text" class="edit-textarea" style="min-height:90px"></textarea>
+        <div>
+          <div class="small">Current image (replace or remove)</div>
+          <div id="modal-image-wrap" style="margin-top:8px"></div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <input id="modal-photo-input" type="file" accept="image/*" style="display:none">
+            <label for="modal-photo-input" class="icon-btn" style="background:#f7f8fa;border-radius:8px;padding:8px 12px;cursor:pointer">Replace image</label>
+            <button id="modal-remove-image" class="icon-btn" style="background:#f7f8fa;border-radius:8px;padding:8px 12px;cursor:pointer">Remove image</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="modal-cancel" class="icon-btn">Cancel</button>
+        <button id="modal-save" class="post-btn">Save</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  /* Storage keys */
+  const KEY_USERS = 'mini_fb_users_final';
+  const KEY_CURRENT = 'mini_fb_current_user_final';
+  const KEY_POSTS = 'mini_fb_posts_final';
+
+  /* Elements */
+  const loginOverlay = document.getElementById('login-overlay');
+  const loginName = document.getElementById('login-name');
+  const loginAvatarInput = document.getElementById('login-avatar-input');
+  const loginAvatarPreview = document.getElementById('login-avatar-preview');
+  const loginSubmit = document.getElementById('login-submit');
+  const usersListEl = document.getElementById('users-list');
+
+  const topUserArea = document.getElementById('top-user-area');
+  const topUserPic = document.getElementById('top-user-pic');
+  const topUserName = document.getElementById('top-user-name');
+  const logoutBtn = document.getElementById('logout-btn');
+
+  const composerArea = document.getElementById('composer-area');
+  const composerText = document.getElementById('composer-text');
+  const composerProfilePic = document.getElementById('composer-profile-pic');
+  const composerPreview = document.getElementById('composer-preview');
+  const fileInput = document.getElementById('publisher-photos');
+  const postBtn = document.getElementById('post-btn');
+  const feed = document.getElementById('feed');
+
+  const feelingBtn = document.getElementById('feeling-btn');
+  const feelingDropdown = document.getElementById('feeling-dropdown');
+
+  const modalOverlay = document.getElementById('modal-overlay');
+  const modalText = document.getElementById('modal-text');
+  const modalImageWrap = document.getElementById('modal-image-wrap');
+  const modalPhotoInput = document.getElementById('modal-photo-input');
+  const modalRemoveImage = document.getElementById('modal-remove-image');
+  const modalSave = document.getElementById('modal-save');
+  const modalCancel = document.getElementById('modal-cancel');
+
+  /* State */
+  let users = JSON.parse(localStorage.getItem(KEY_USERS) || '[]');
+  let currentUser = JSON.parse(localStorage.getItem(KEY_CURRENT) || 'null');
+  let posts = JSON.parse(localStorage.getItem(KEY_POSTS) || '[]');
+  let composerImage = null;
+
+  /* helpers */
+  function uid(prefix='p'){ return prefix + '_' + Date.now() + '_' + Math.floor(Math.random()*10000) }
+  function saveUsers(){ localStorage.setItem(KEY_USERS, JSON.stringify(users)); }
+  function saveCurrent(){ localStorage.setItem(KEY_CURRENT, JSON.stringify(currentUser)); }
+  function savePosts(){ localStorage.setItem(KEY_POSTS, JSON.stringify(posts)); }
+  function escapeHtml(s){ return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;').replaceAll('\n','<br>'); }
+  function unescapeForEdit(s){ return String(s).replaceAll('&lt;','<').replaceAll('&gt;','>').replaceAll('&amp;','&').replaceAll('&quot;','"').replaceAll('&#039;',"'").replaceAll('<br>','\n'); }
+  function timeLabel(iso){
+    const d = new Date(iso);
+    const hh = d.getHours(), mm = String(d.getMinutes()).padStart(2,'0');
+    if (Date.now() - d.getTime() < 60*1000) return `Just now • ${hh%12||12}:${mm} ${hh>=12?'PM':'AM'}`;
+    return `${hh%12||12}:${mm} ${hh>=12?'PM':'AM'} • ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`;
+  }
+
+  /* UI init */
+  function renderUsersList(){
+    usersListEl.innerHTML = '';
+    if (!users.length){ usersListEl.innerHTML = '<div class="small">No users yet</div>'; return; }
+    users.forEach((u, idx) => {
+      const pill = document.createElement('div');
+      pill.className = 'user-pill';
+      pill.innerHTML = `<img src="${u.avatar}" alt=""><div><div style="font-weight:700">${escapeHtml(u.name)}</div><div class="small">Click to sign in</div></div>`;
+      pill.addEventListener('click', ()=> loginAs(idx));
+      usersListEl.appendChild(pill);
+    });
+  }
+
+  function showLogin(){ loginOverlay.style.display = 'flex'; renderUsersList(); }
+  function hideLogin(){ loginOverlay.style.display = 'none'; }
+
+  function renderTop(){
+    if (!currentUser){ topUserArea.style.display = 'none'; return; }
+    topUserArea.style.display = 'flex';
+    topUserPic.src = currentUser.avatar;
+    topUserName.textContent = currentUser.name;
+  }
+
+  /* --- Login flows --- */
+  loginAvatarInput.addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    if (!f.type.startsWith('image/')) return alert('Select an image file.');
+    const r = new FileReader();
+    r.onload = () => loginAvatarPreview.src = r.result;
+    r.readAsDataURL(f);
+  });
+
+  loginSubmit.addEventListener('click', () => {
+    const name = loginName.value.trim();
+    if (!name) return alert('Enter your name.');
+    const avatar = loginAvatarPreview.src || 'https://i.imgur.com/8Km9tLL.png';
+    let u = users.find(x => x.name === name);
+    if (!u){
+      u = { name, avatar };
+      users.push(u);
+      saveUsers();
+    } else {
+      u.avatar = avatar;
+      saveUsers();
+    }
+    currentUser = u;
+    saveCurrent();
+    startApp();
+  });
+
+  function loginAs(index){
+    const u = users[index];
+    if (!u) return;
+    currentUser = u;
+    saveCurrent();
+    startApp();
+  }
+
+  logoutBtn.addEventListener('click', ()=>{
+    if (!confirm('Log out?')) return;
+    localStorage.removeItem(KEY_CURRENT);
+    currentUser = null;
+    renderTop();
+    composerArea.style.display = 'none';
+    showLogin();
+  });
+
+  /* --- Composer --- */
+  function autosize(el){ el.style.height='auto'; el.style.height = Math.min(el.scrollHeight, 300) + 'px'; }
+  composerText.addEventListener('input', () => {
+    autosize(composerText);
+    postBtn.disabled = composerText.value.trim() === '' && !composerImage;
+  });
+
+  fileInput.addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    if (!f.type.startsWith('image/')) return alert('Choose an image file.');
+    const r = new FileReader();
+    r.onload = () => {
+      composerImage = r.result;
+      composerPreview.src = composerImage;
+      composerPreview.style.display = 'block';
+      postBtn.disabled = false;
+    };
+    r.readAsDataURL(f);
+  });
+
+  composerPreview.addEventListener('click', () => {
+    if (!confirm('Remove image?')) return;
+    composerImage = null;
+    composerPreview.style.display = 'none';
+    fileInput.value = '';
+    postBtn.disabled = composerText.value.trim() === '';
+  });
+
+  /* feeling options */
+  feelingBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    feelingDropdown.style.display = feelingDropdown.style.display === 'block' ? 'none' : 'block';
+  });
+  document.addEventListener('click', (e) => {
+    if (!feelingDropdown.contains(e.target) && e.target !== feelingBtn) feelingDropdown.style.display = 'none';
+  });
+  document.querySelectorAll('.feeling-option').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const t = btn.textContent.trim();
+      composerText.value = (composerText.value ? composerText.value + ' ' : '') + t;
+      autosize(composerText);
+      postBtn.disabled = false;
+      feelingDropdown.style.display = 'none';
+    });
+  });
+
+  /* --- Posts rendering & actions --- */
+  function renderFeed(){
+    feed.innerHTML = '';
+    // newest first
+    posts.slice().reverse().forEach(p => feed.appendChild(createPostElement(p)));
+  }
+
+  function createPostElement(post){
+    const el = document.createElement('div');
+    el.className = 'post';
+    const liked = post.likedBy && currentUser && post.likedBy.includes(currentUser.name);
+    el.innerHTML = `
+      <div class="post-header">
+        <div class="post-left">
+          <img src="${post.authorPic}" alt="" style="width:48px;height:48px;border-radius:50%;object-fit:cover">
+          <div>
+            <div class="post-author">${escapeHtml(post.authorName)}</div>
+            <div class="post-time small">${timeLabel(post.time)}</div>
+          </div>
+        </div>
+        <div class="controls"></div>
+      </div>
+
+      <div class="post-body">
+        <div class="post-content">${escapeHtml(post.text)}</div>
+        ${post.image ? `<img class="post-image" src="${post.image}" alt="">` : ''}
+      </div>
+
+      <div class="post-actions">
+        <button class="action-btn like-btn" title="Like">${liked ? '💙 Liked' : '❤️ Like'}</button>
+        <button class="action-btn comment-btn" title="Comment">💬 Comment</button>
+        <button class="action-btn share-btn" title="Share">🔄 Share</button>
+      </div>
+
+      <div class="comments-section" style="display:${post.comments && post.comments.length ? 'block' : 'none'}">
+        <div class="comment-box">
+          <img src="${currentUser ? currentUser.avatar : 'https://i.imgur.com/8Km9tLL.png'}" alt="">
+          <input class="comment-input" placeholder="Write a comment...">
+          <button class="emoji-btn" title="Emoji">😊</button>
+          <div class="emoji-picker"></div>
+        </div>
+        <div class="comments-list"></div>
+      </div>
+    `;
+
+    // controls (edit/delete) if owner
+    const controlsWrap = el.querySelector('.controls');
+    if (currentUser && currentUser.name === post.authorName){
+      const editBtn = document.createElement('button'); editBtn.className='icon-btn'; editBtn.title='Edit'; editBtn.textContent='✏️';
+      const delBtn  = document.createElement('button'); delBtn.className='icon-btn'; delBtn.title='Delete'; delBtn.textContent='🗑️';
+      controlsWrap.appendChild(editBtn); controlsWrap.appendChild(delBtn);
+
+      editBtn.addEventListener('click', ()=> openEditModal(post));
+      delBtn.addEventListener('click', ()=>{
+        if (!confirm('Delete this post?')) return;
+        posts = posts.filter(x=>x.id !== post.id);
+        savePosts(); renderFeed();
+      });
+    }
+
+    // like
+    const likeBtn = el.querySelector('.like-btn');
+    likeBtn.addEventListener('click', ()=>{
+      if (!currentUser){ alert('Please sign in.'); return; }
+      post.likedBy = post.likedBy || [];
+      const idx = post.likedBy.indexOf(currentUser.name);
+      if (idx === -1) { post.likedBy.push(currentUser.name); likeBtn.classList.add('liked'); likeBtn.textContent='💙 Liked'; }
+      else { post.likedBy.splice(idx,1); likeBtn.classList.remove('liked'); likeBtn.textContent='❤️ Like'; }
+      savePosts();
+    });
+
+    // comment toggle & behavior
+    const commentBtn = el.querySelector('.comment-btn');
+    const commentsSection = el.querySelector('.comments-section');
+    const commentInput = el.querySelector('.comment-input');
+    const emojiBtn = el.querySelector('.emoji-btn');
+    const emojiPicker = el.querySelector('.emoji-picker');
+    const commentsList = el.querySelector('.comments-list');
+
+    commentBtn.addEventListener('click', ()=>{
+      const hidden = commentsSection.style.display === 'none';
+      commentsSection.style.display = hidden ? 'block' : 'none';
+      if (hidden) commentInput.focus();
+    });
+
+    // render existing comments
+    if (post.comments && post.comments.length){
+      post.comments.forEach(c => {
+        commentsList.appendChild(createCommentElement(post, c));
+      });
+    }
+
+    // emoji picker content
+    const EMOJIS = ['😀','😂','😍','😎','😭','😡','🤔','👍','👎','🎉','❤️','🔥','🥰','😴','🤩'];
+    emojiPicker.innerHTML = EMOJIS.map(e => `<span>${e}</span>`).join('');
+    emojiPicker.querySelectorAll('span').forEach(sp => {
+      sp.addEventListener('click', ()=> {
+        commentInput.value += sp.textContent;
+        commentInput.focus();
+      });
+    });
+
+    emojiBtn.addEventListener('click', (ev)=> {
+      ev.stopPropagation();
+      emojiPicker.classList.toggle('active');
+    });
+    document.addEventListener('click', (ev)=> {
+      if (!emojiPicker.contains(ev.target) && ev.target !== emojiBtn) emojiPicker.classList.remove('active');
+    });
+
+    // submit comment with Enter
+    commentInput.addEventListener('keypress', (e)=>{
+      if (e.key === 'Enter' && commentInput.value.trim()){
+        if (!currentUser){ alert('Please sign in.'); return; }
+        const cobj = { id: uid('c'), authorName: currentUser.name, authorPic: currentUser.avatar, text: commentInput.value.trim(), time: new Date().toISOString() };
+        post.comments = post.comments || []; post.comments.push(cobj);
+        savePosts();
+        commentsList.appendChild(createCommentElement(post, cobj));
+        commentInput.value = '';
+      }
+    });
+
+    return el;
+  }
+
+  function createCommentElement(post, comment){
+    const div = document.createElement('div');
+    div.className = 'comment';
+    div.innerHTML = `
+      <img src="${comment.authorPic}" alt="">
+      <div style="flex:1">
+        <div class="comment-meta">
+          <div class="comment-author">${escapeHtml(comment.authorName)}</div>
+          <div class="comment-text">${escapeHtml(comment.text)}</div>
+        </div>
+      </div>
+    `;
+    if (currentUser && currentUser.name === comment.authorName){
+      const ctr = document.createElement('div');
+      ctr.className = 'comment-controls';
+      const edit = document.createElement('button'); edit.className='comment-control'; edit.textContent='Edit';
+      const del = document.createElement('button'); del.className='comment-control'; del.textContent='Delete';
+      ctr.appendChild(edit); ctr.appendChild(del);
+      div.appendChild(ctr);
+
+      edit.addEventListener('click', () => {
+        const meta = div.querySelector('.comment-meta');
+        const textDiv = meta.querySelector('.comment-text');
+        const original = comment.text;
+        const editArea = document.createElement('div');
+        editArea.className = 'editing-area';
+        editArea.innerHTML = `<textarea class="edit-textarea">${unescapeForEdit(original)}</textarea>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="post-btn save">Save</button>
+            <button class="icon-btn cancel">Cancel</button>
+          </div>`;
+        meta.replaceChild(editArea, textDiv);
+        editArea.querySelector('.save').addEventListener('click', () => {
+          const newText = editArea.querySelector('.edit-textarea').value.trim();
+          comment.text = newText;
+          savePosts();
+          const newTextDiv = document.createElement('div'); newTextDiv.className='comment-text'; newTextDiv.innerHTML = escapeHtml(newText);
+          meta.replaceChild(newTextDiv, editArea);
+        });
+        editArea.querySelector('.cancel').addEventListener('click', () => {
+          const newTextDiv = document.createElement('div'); newTextDiv.className='comment-text'; newTextDiv.innerHTML = escapeHtml(original);
+          meta.replaceChild(newTextDiv, editArea);
+        });
+      });
+
+      del.addEventListener('click', () => {
+        if (!confirm('Delete this comment?')) return;
+        post.comments = post.comments.filter(c => c.id !== comment.id);
+        savePosts();
+        div.remove();
+      });
+    }
+    return div;
+  }
+
+  /* --- Posting --- */
+  postBtn.addEventListener('click', () => {
+    if (!currentUser){ alert('Please sign in.'); return; }
+    const text = composerText.value.trim();
+    if (!text && !composerImage) return alert('Write something or add an image.');
+    const newPost = {
+      id: uid('p'),
+      authorName: currentUser.name,
+      authorPic: currentUser.avatar,
+      text: text,
+      image: composerImage || null,
+      time: new Date().toISOString(),
+      likedBy: [],
+      comments: []
+    };
+    posts.push(newPost);
+    savePosts();
+    renderFeed();
+    // reset composer
+    composerText.value = '';
+    composerImage = null;
+    composerPreview.style.display = 'none';
+    fileInput.value = '';
+    postBtn.disabled = true;
+  });
+
+  /* --- Edit modal flows --- */
+  let editingPost = null;
+  function openEditModal(post){
+    editingPost = post;
+    modalText.value = unescapeForEdit(post.text || '');
+    modalImageWrap.innerHTML = post.image ? `<img src="${post.image}" class="edit-image" alt="">` : '<div class="small">No image</div>';
+    modalOverlay.style.display = 'flex';
+  }
+  modalCancel.addEventListener('click', ()=> { modalOverlay.style.display='none'; editingPost=null; modalPhotoInput.value=''; });
+  modalPhotoInput.addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    if (!f.type.startsWith('image/')) return alert('Pick an image file.');
+    const r = new FileReader();
+    r.onload = ()=> {
+      modalImageWrap.innerHTML = `<img src="${r.result}" class="edit-image" alt="">`;
+      // temporary store in dom for save
+      modalImageWrap.dataset.tmp = r.result;
+    };
+    r.readAsDataURL(f);
+  });
+  modalRemoveImage.addEventListener('click', ()=> {
+    modalImageWrap.innerHTML = '<div class="small">No image</div>';
+    delete modalImageWrap.dataset.tmp;
+    modalImageWrap.dataset.removed = '1';
+  });
+  modalSave.addEventListener('click', ()=> {
+    if (!editingPost) return;
+    editingPost.text = modalText.value.trim();
+    // image replacement logic:
+    if (modalImageWrap.dataset.tmp){
+      editingPost.image = modalImageWrap.dataset.tmp;
+      delete modalImageWrap.dataset.tmp;
+      delete modalImageWrap.dataset.removed;
+    } else if (modalImageWrap.dataset.removed){
+      editingPost.image = null;
+      delete modalImageWrap.dataset.removed;
+    }
+    savePosts();
+    modalOverlay.style.display = 'none';
+    editingPost = null;
+    renderFeed();
+  });
+
+  /* --- Startup --- */
+  function startApp(){
+    hideLogin();
+    renderTop();
+    composerArea.style.display = 'block';
+    composerProfilePic.src = currentUser.avatar;
+    composerProfilePic.alt = currentUser.name;
+    composerText.value = '';
+    composerPreview.style.display = 'none';
+    composerImage = null;
+    postBtn.disabled = true;
+    renderUsersList();
+    renderFeed();
+  }
+
+  // initial
+  renderUsersList();
+  if (currentUser){
+    startApp();
+  } else {
+    showLogin();
+  }
+
+  /* small helpers for compatibility */
+  function unescapeForEdit(s){ return String(s).replaceAll('<br>','\n').replaceAll('&lt;','<').replaceAll('&gt;','>').replaceAll('&amp;','&').replaceAll('&quot;','"').replaceAll('&#039;',"'"); }
+
+  // allow Enter to sign in
+  loginName.addEventListener('keyup', (e)=> { if (e.key === 'Enter') loginSubmit.click(); });
+  // allow escape to close modal/dropdowns
+  document.addEventListener('keydown', (e)=> {
+    if (e.key === 'Escape'){
+      modalOverlay.style.display = 'none';
+      feelingDropdown.style.display = 'none';
+      document.querySelectorAll('.emoji-picker.active').forEach(p=>p.classList.remove('active'));
+    }
+  });
+});
+</script>
+</body>
+    
+    
+  <iframe src="https://www.facebook.com/plugins/post.php?href=https%3A%2F%2Fweb.facebook.com%2Fpermalink.php%3Fstory_fbid%3Dpfbid036NavEYyR9Wk3WJPGXoR72a3QbHLpG8p5Qbdef5cbt6RXosovzdBvWaapr5vqiJojl%26id%3D61568141606321&show_text=true&width=500" width="500" height="739" style="border:none;overflow:hidden" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>
+
+
+
+<iframe src="https://www.facebook.com/plugins/post.php?href=https%3A%2F%2Fweb.facebook.com%2Feptv.dz%2Fposts%2Fpfbid0pBUfebRBVuEkKUkTqVH3PW9MC714weW9T8bkR3ucSNhodYqC8FJyEhqiArboFpuVl&show_text=true&width=500" width="500" height="498" style="border:none;overflow:hidden" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>
+
+
+<iframe src="https://www.facebook.com/plugins/post.php?href=https%3A%2F%2Fweb.facebook.com%2F9bayliyat.AK19%2Fposts%2Fpfbid012reDnrX84vYYqeMQAMuhgPCKUQdDxPksERDP5rkCc9euyTuwNPgHdWLoe5WqhV9l&show_text=true&width=500" width="500" height="632" style="border:none;overflow:hidden" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>
+
+
+<iframe src="https://www.facebook.com/plugins/post.php?href=https%3A%2F%2Fweb.facebook.com%2Fpermalink.php%3Fstory_fbid%3Dpfbid02wngii9eWgVmGU2rJNnY5pHUnRJiST2v4s1ueLKhW2ijyQsKomPVuQmc9d7vecyyZl%26id%3D61581339374476&show_text=false&width=500" width="500" height="591" style="border:none;overflow:hidden" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>
+
+
+
+
+
+
+
+<iframe src="https://www.facebook.com/plugins/post.php?href=https%3A%2F%2Fweb.facebook.com%2Fpermalink.php%3Fstory_fbid%3Dpfbid02ZaYzXgYnZVv1PXLJZbYYg3L32J93NHQyD4jPRBnuDHNi317o5VvWgnKguFTkcGyTl%26id%3D61566189722610&show_text=true&width=500" width="500" height="768" style="border:none;overflow:hidden" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>
+
+
+
+
+
+
+<iframe src="https://www.facebook.com/plugins/video.php?height=476&href=https%3A%2F%2Fweb.facebook.com%2Freel%2F808905381514700%2F&show_text=false&width=267&t=0" width="267" height="476" style="border:none;overflow:hidden" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" allowFullScreen="true"></iframe>
+
+
+
+<iframe src="https://www.facebook.com/plugins/video.php?height=476&href=https%3A%2F%2Fweb.facebook.com%2Freel%2F1395192778943130%2F&show_text=false&width=267&t=0" width="267" height="476" style="border:none;overflow:hidden" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" allowFullScreen="true"></iframe>
+
+
+
+
+
+
+
+
+
+
+<iframe src="https://www.facebook.com/plugins/video.php?height=476&href=https%3A%2F%2Fweb.facebook.com%2Freel%2F1166428265504876%2F&show_text=false&width=267&t=0" width="267" height="476" style="border:none;overflow:hidden" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" allowFullScreen="true"></iframe>
+
+
+
+
+
+
+
+
+
+
+  <script language="JavaScript1.2">
+// *******************************************************************
+
+      
+// remains intact. Visit my homepage www.elahmad.com
+// Script written for Internet Explorer 4.0+.
+// ******************************************************************* 
+
+var message="Welcome to our website Frienbook"     //specifys the title
+var message=message+"          " //gives a pause at the end,1 space=1 speed unit, here I used 10 spaces@150 each = 1.5seconds. 
+i="0"			         //declares the variable and sets it to start at 0
+var temptitle=""                 //declares the variable and sets it to have no value yet.
+var speed="150"                  //the delay in milliseconds between letters
+
+function titler(){
+if (!document.all&&!document.getElementById)
+return
+document.title=temptitle+message.charAt(i)  //sets the initial title
+temptitle=temptitle+message.charAt(i)       //increases the title by one letter
+i++					    //increments the counter
+if(i==message.length)			    //determines the end of the message
+{
+i="0"					    //resets the counter at the end of the message
+temptitle=""				    //resets the title to a blank value
+}
+setTimeout("titler()",speed) 		   //Restarts. Remove line for no-repeat.
+}
+
+window.onload=titler
+</script> 
+
+
+
+
+
+<iframe width="560" height="315" src="https://www.elahmad.com/tv/watchtv.php?id=saudi_tv" style="border:none;" allowfullscreen allow="autoplay; fullscreen; picture-in-picture; xr-spatial-tracking; encrypted-media"></iframe>
+
+
+
+
+
+
+<iframe width="560" height="315" src="https://www.elahmad.com/tv/watchtv.php?id=qoran_tv" style="border:none;" allowfullscreen allow="autoplay; fullscreen; picture-in-picture; xr-spatial-tracking; encrypted-media"></iframe>
+
+
+
+
+
+<iframe width="560" height="315" src="https://www.elahmad.com/tv/watchtv.php?id=saudi_now" style="border:none;" allowfullscreen allow="autoplay; fullscreen; picture-in-picture; xr-spatial-tracking; encrypted-media"></iframe>  
+    
+    
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Frienbook",
+  "url": "https://datingsit.wuaze.com/",
+  "logo": "https://ibb.co/N6tCDjC8"
+}
+</script>  
+    
+</html>
